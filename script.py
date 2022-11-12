@@ -65,6 +65,8 @@ def main(pdf_dict):
     
     # Get the name and email
     name = data["name"]
+    college_name = data["college_name"]
+    degree = data["degree"]
     emails = []
     phone_numbers = []
     skills = data["skills"]
@@ -231,12 +233,14 @@ def main(pdf_dict):
     
     output = {
         "name":name,
+        "college_name":college_name,
+        "degree":degree,
         "location":location,
         "email":email,
         "phone_number":phone_number,
         "linkedin":linkedin,
         "github":github,
-        "skills":skills
+        "skills":skills,
     }
     
     return output
