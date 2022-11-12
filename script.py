@@ -4,15 +4,29 @@
 !pip install nltk
 !pip install spacy==2.3.5
 !pip3 install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.5/en_core_web_sm-2.3.5.tar.gz
-#!python -m spacy download en_core_web_sm
 !python -m nltk.downloader words
 !python -m nltk.downloader stopwords
 !pip install python-doctr
 !pip install "python-doctr[torch]"
-!pip install "python-doctr[tf]"
 !pip install pdf2image
 conda install -c conda-forge poppler
 !pip install pdf2image
+"""
+
+
+"""
+pip install --upgrade pip
+pip install pyresparser
+pip install nltk
+pip install spacy==2.3.5
+pip3 install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.5/en_core_web_sm-2.3.5.tar.gz
+python -m nltk.downloader words
+python -m nltk.downloader stopwords
+pip install python-doctr
+pip install "python-doctr[torch]"
+pip install pdf2image
+conda install -c conda-forge poppler
+pip install pdf2image
 """
 
 
@@ -27,15 +41,26 @@ from pdf2image import convert_from_path
 import os
 import re
 
+from flask import Flask
+from flask import request
 
 
 
-def main():
+
+app = Flask(__name__)
+@app.route('/', methods = ['POST'])
+def main(pdf_dict):
+    # Get the url
+    url = pdf_dict["url"]
+    
+    
+    
+    
     #### Model 1
     # Repo: https://github.com/OmkarPathak/pyresparser
     
     # Use the first model to get some data
-    data = ResumeParser('test.pdf').get_extracted_data()
+    data = ResumeParser(url).get_extracted_data()
     data
     
     # Get the name and email
@@ -74,7 +99,7 @@ def main():
     model = ocr_predictor(det_arch="db_mobilenet_v3_large", reco_arch="crnn_vgg16_bn", pretrained=True, export_as_straight_boxes=True)
     
     # Create images from the pdf
-    images = convert_from_path('./test.pdf', dpi=400)
+    images = convert_from_path(url, dpi=400)
     
     # Save the images to a tmp directory
     if not os.path.exists("tmp"):
@@ -86,6 +111,10 @@ def main():
     # Load in the images
     pdf_doc = DocumentFile.from_images(paths)
     data = model(pdf_doc).pages
+    
+    # Delete the files in the temporary directory
+    for path in paths:
+        os.remove(path)
     
     # string windows for linkedin and github
     linkedin_window = "inkedin.com"
@@ -114,15 +143,15 @@ def main():
             for line in block.lines:
                 l+=1
                 
+                # Combine the words into a sentence
+                sent = [sent.value for sent in line.words]
+                sent = " ".join(sent)
+                
                 # Finding the location of the person
                 if location == None:
                     pos = re.findall("[\w ]+,[ ]*[A-Z]{2,}|[A-Z]{3,}", sent)
                     if len(pos) > 0:
                         location = pos[0].strip()
-                
-                # Combine the words into a sentence
-                sent = [sent.value for sent in line.words]
-                sent = " ".join(sent)
                 
                 # Sentence without spacing
                 sent_no_space = sent.replace(" ", "").lower()
@@ -198,16 +227,19 @@ def main():
     for num,idx_ in phone_numbers:
         if idx_ < idx:
             phone_number = num
-            
-            
     
-    print(name)
-    print(location)
-    print(email)
-    print(phone_number)
-    print(linkedin)
-    print(github)
-    print(skills)
+    
+    output = {
+        "name":name,
+        "location":location,
+        "email":email,
+        "phone_number":phone_number,
+        "linkedin":linkedin,
+        "github":github,
+        "skills":skills
+    }
+    
+    return output
 
 
 
@@ -219,4 +251,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main({"url":"test.pdf"})
