@@ -53,17 +53,70 @@ import nltk
 from nltk.tag.stanford import StanfordNERTagger
 
 
-
-
 def download_file(url, filename):
     # Download the file locally
     urllib.request.urlretrieve(url, filename)
 
 
+    
+    
+    
+    
+    
+    
+    
+    
+###### Job Classifier
+
+# Load vocabs
+with open("classifier/models/vocab.json", "r") as file :
+    vocab = json.load(file)
+with open("classifier/models/vocab_inv.json", "r") as file :
+    vocab_inv = json.load(file)
+
+# Classifier model
+class model(torch.nn.Module):
+    def __init__(self, in_, out):
+        super(model, self).__init__()
+        
+        self.zero = torch.nn.Embedding(in_, in_)
+        self.first = torch.nn.LSTM(in_, out, num_layers=2, bidirectional=True)
+        self.second = torch.nn.Sequential(
+            torch.nn.Linear(out*2, 1),
+            torch.nn.Sigmoid()
+        )
+        
+        self.bce = torch.nn.BCELoss(reduction="none")
+        
+        self.optim = torch.optim.Adam(self.parameters(), lr=0.0005)
+    
+    
+    def forward(self, X):
+        return self.second(self.first(self.zero(X))[0])[:, 0].squeeze(-1)
+    
+# Load model state
+M = model(len(vocab), 16)
+M.load_state_dict(torch.load("classifier/models/model1.pkl"))
+M.eval()
+max_len = 88
+PAD_tok = torch.tensor(vocab["<PAD>"]).int()
 
 
+
+
+
+
+
+
+
+
+    
 # Person tagger
 tagger = StanfordNERTagger('stanford-ner/english.all.3class.distsim.crf.ser.gz', 'stanford-ner/stanford-ner.jar')
+
+
+
+
 
 
 
@@ -168,6 +221,7 @@ def main(pdf_dict=None):
     githubs = dict()
     linkedins = dict()
     twitters = dict()
+    job_titles = dict()
     
     # Name of the person as a list
     person_list = list()
@@ -193,7 +247,6 @@ def main(pdf_dict=None):
                 # Combine the words into a sentence
                 sent = [sent.value for sent in line.words]
                 sent = " ".join(sent)
-                print(sent)
                 
                 # Find the name
                 if len(person_list) < 3 and w < 10:
@@ -228,6 +281,9 @@ def main(pdf_dict=None):
                 # Sentence without spacing
                 sent_no_space = sent.replace(" ", "").lower()
                 
+                # Sentence as a list
+                sent_list = sent.split(" ")
+                
                 # Find any phone numbers
                 for number in re.findall("[(]?[\d]{3}[)]?[ ]?[-]?[ ]?[\d]{3}[ ]?[-]?[ ]?[\d]{4}", sent):
                     phone_numbers.append([number, l])
@@ -244,9 +300,9 @@ def main(pdf_dict=None):
                     for j in range(0, len(segment)):
                         similarity += abs(ord(segment[j]) - ord(github_window[j]))
                     
-                    # If the similarity is greater than 99%, store the sequence
+                    # If the similarity is greater than 97%, store the sequence
                     # and it's similarity
-                    if 1-(similarity/github_window_max) > 0.95:
+                    if 1-(similarity/github_window_max) > 0.97:
                         # Get the github username after github.com
                         username = re.findall("[(/*)]*[/]?[\w-]+", sent_no_space[github_window_len+i:])
                         if len(username) == 0:
@@ -283,9 +339,9 @@ def main(pdf_dict=None):
                     for j in range(0, len(segment)):
                         similarity += abs(ord(segment[j]) - ord(twitter_window[j]))
                     
-                    # If the similarity is greater than 95%, store the sequence
+                    # If the similarity is greater than 97%, store the sequence
                     # and it's similarity
-                    if 1-(similarity/twitter_window_max) > 0.95:
+                    if 1-(similarity/twitter_window_max) > 0.97:
                         # Get the twitter username after twitter.com/
                         username = re.findall("[/]*[@]?[\w]*", sent_no_space[linkedin_window_len+i:])
                         if len(username) == 0:
@@ -296,7 +352,56 @@ def main(pdf_dict=None):
                         if username[0] != "/":
                             username = "/" + username
                         twitters[twitter_window + username] = 1-(similarity/twitter_window_max)
-                        
+                
+                
+                
+                if l < 20:
+                    # Segments in the line with padding with 2 words
+                    segments_enc = [
+                        torch.tensor(
+                            [vocab[j] for j in
+                                re.sub("[^-9A-Za-z ]", "", " ".join(sent_list[i:i+2]).lower())
+                            ]
+                        ) for i in range(0, len(sent_list)-1)
+                    ]
+                    segments = [
+                        re.sub("[^-9A-Za-z ]", "", " ".join(sent_list[i:i+2])).lower()
+                        for i in range(0, len(sent_list)-1)
+                    ]
+                    
+                    # Segments in the line with padding with 1 word
+                    segments_enc += [
+                        torch.tensor(
+                            [vocab[j] for j in
+                                re.sub("[^-9A-Za-z ]", "", " ".join(sent_list[i:i+1]).lower())
+                            ]
+                        ) for i in range(0, len(sent_list)-1)
+                    ]
+                    segments += [
+                        re.sub("[^-9A-Za-z ]", "", " ".join(sent_list[i:i+1])).lower()
+                        for i in range(0, len(sent_list)-1)
+                    ]
+                    
+                    # Padding
+                    for i in range(0, len(segments_enc)):
+                        segments_enc[i] = torch.cat((segments_enc[i], PAD_tok.repeat(max_len-len(segments_enc[i]))), dim=0)
+
+                    try:
+                        # Convert the segments to a batch
+                        segments_enc = torch.stack(segments_enc).int()
+
+                        # Get the model output on the predictions
+                        segments_out = M(segments_enc)
+
+                        # Save the predictions
+                        for i in range(0, len(segments)):
+                            job_titles[segments[i]] = segments_out[i].item()
+                    except RuntimeError:
+                        pass
+                  
+                    
+                    
+                    
     # Get the links with the highest similarity
     try:
         github = max(githubs, key=githubs.get)
@@ -324,9 +429,12 @@ def main(pdf_dict=None):
     for num,idx_ in phone_numbers:
         if idx_ < idx:
             phone_number = num
+            
+    # Get the highest confidenceprediction for the job
+    job_title_max = np.argmax(list(job_titles.values()))
+    job_title = list(job_titles.keys())[job_title_max]
     
     about_me = None
-    job_title = None
     
     # If a person was found, save it
     if len(person_list) == 3:
@@ -350,7 +458,6 @@ def main(pdf_dict=None):
     }
     
     return output
-
 
 
 
