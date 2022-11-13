@@ -62,6 +62,11 @@ def download_file(url, filename):
 
 
 
+# Person tagger
+tagger = StanfordNERTagger('stanford-ner/english.all.3class.distsim.crf.ser.gz', 'stanford-ner/stanford-ner.jar')
+
+
+
 app = Flask(__name__)
 CORS(app)
 @app.route('/', methods = ['POST'])
@@ -157,7 +162,7 @@ def main(pdf_dict=None):
     twitter_window_max = len(twitter_window)*ord("a")
     
     # Person tagger
-    tagger = StanfordNERTagger('stanford-ner/english.all.3class.distsim.crf.ser.gz', 'stanford-ner/stanford-ner.jar')
+    # tagger = StanfordNERTagger('stanford-ner/english.all.3class.distsim.crf.ser.gz', 'stanford-ner/stanford-ner.jar')
     
     # Dictionaries to store possible data
     githubs = dict()
@@ -241,7 +246,7 @@ def main(pdf_dict=None):
                     
                     # If the similarity is greater than 99%, store the sequence
                     # and it's similarity
-                    if 1-(similarity/github_window_max) > 0.97:
+                    if 1-(similarity/github_window_max) > 0.95:
                         # Get the github username after github.com
                         username = re.findall("[(/*)]*[/]?[\w-]+", sent_no_space[github_window_len+i:])
                         if len(username) == 0:
@@ -263,7 +268,7 @@ def main(pdf_dict=None):
                     # and it's similarity
                     if 1-(similarity/linkedin_window_max) > 0.97:
                         # Get the linkedin username after linkedin.com/in/
-                        username = re.findall("[\w]*[/]?[\w]*[/]?[\w.]+", sent_no_space[linkedin_window_len+i:])
+                        username = re.findall("[\w]*[/]?[\w]*[/]?[\w.-]+", sent_no_space[linkedin_window_len+i:])
                         if len(username) == 0:
                             continue
                         username = username[0].split("/")[-1]
