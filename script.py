@@ -10,7 +10,7 @@
 !pip install "python-doctr[torch]"
 !pip install pdf2image
 conda install -c conda-forge poppler
-!pip install pdf2image
+!pip install flask
 """
 
 
@@ -43,15 +43,35 @@ import re
 
 from flask import Flask
 from flask import request
+import urllib.request
+
+
+
+
+def download_file(url, filename):
+    # Download the file locally
+    urllib.request.urlretrieve(url, filename)
 
 
 
 
 app = Flask(__name__)
 @app.route('/', methods = ['POST'])
-def main(pdf_dict):
+def main(pdf_dict=None):
+    # Get the pdf dictionary
+    if pdf_dict == None:
+        pdf_dict = request.args.get('msg')
+    
+    # Create tmp directory
+    if not os.path.exists("tmp"):
+        os.makedirs("tmp")
+        
     # Get the url
     url = pdf_dict["url"]
+        
+    # Download the file
+    filename = "tmp/tmpfile.pdf"
+    download_file(url, filename)
     
     
     
@@ -60,8 +80,7 @@ def main(pdf_dict):
     # Repo: https://github.com/OmkarPathak/pyresparser
     
     # Use the first model to get some data
-    data = ResumeParser(url).get_extracted_data()
-    data
+    data = ResumeParser(filename).get_extracted_data()
     
     # Get the name and email
     name = data["name"]
@@ -101,11 +120,9 @@ def main(pdf_dict):
     model = ocr_predictor(det_arch="db_mobilenet_v3_large", reco_arch="crnn_vgg16_bn", pretrained=True, export_as_straight_boxes=True)
     
     # Create images from the pdf
-    images = convert_from_path(url, dpi=400)
+    images = convert_from_path(filename, dpi=400)
     
     # Save the images to a tmp directory
-    if not os.path.exists("tmp"):
-        os.makedirs("tmp")
     paths = [f"tmp/tmp{i}.jpg" for i in range(0, len(images))]
     for img, path in zip(images, paths):
         img.save(path)
@@ -255,4 +272,4 @@ def main(pdf_dict):
 
 
 if __name__ == "__main__":
-    main({"url":"test.pdf"})
+    main({"url":"https://firebasestorage.googleapis.com/v0/b/hackutd-conneqt.appspot.com/o/resumes%2F38oD5dNWCmVADXuscACWdRoRGrH2%2F1668309159465.pdf?alt=media&token=a2b3ec3c-1631-4208-b1cb-81f2199dc620"})

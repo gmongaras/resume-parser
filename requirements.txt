@@ -1,0 +1,6 @@
+spacy==2.3.5
+flask
+pyresparser
+nltk
+python-doctr
+pdf2image
