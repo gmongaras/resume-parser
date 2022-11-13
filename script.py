@@ -12,7 +12,6 @@
 conda install -c conda-forge poppler
 !pip install flask
 !pip install -U flask-cors
-!pip install pyopenssl
 """
 
 
@@ -31,7 +30,6 @@ conda install -c conda-forge poppler
 pip install flask
 pip3 install pyOpenSSL --upgrade
 pip install flask-cors
-pip install pyopenssl
 """
 
 
@@ -309,8 +307,5 @@ def main(pdf_dict=None):
 
 
 
-# if __name__ == "__main__":
-#     print(main({"url":"https://firebasestorage.googleapis.com/v0/b/hackutd-conneqt.appspot.com/o/resumes%2F38oD5dNWCmVADXuscACWdRoRGrH2%2F1668309159465.pdf?alt=media&token=a2b3ec3c-1631-4208-b1cb-81f2199dc620"}))
-
 if __name__ == "__main__":
-    app.run(ssl_context='adhoc')
+    print(main({"url":"https://firebasestorage.googleapis.com/v0/b/hackutd-conneqt.appspot.com/o/resumes%2F38oD5dNWCmVADXuscACWdRoRGrH2%2F1668309159465.pdf?alt=media&token=a2b3ec3c-1631-4208-b1cb-81f2199dc620"}))
