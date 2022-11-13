@@ -60,6 +60,7 @@ def download_file(url, filename):
 
 
 app = Flask(__name__)
+CORS(app)
 @app.route('/', methods = ['POST'])
 def main(pdf_dict=None):
     # Get the pdf dictionary
