@@ -3,7 +3,7 @@
 !pip install pyresparser
 !pip install nltk
 !pip install spacy==2.3.5
-!pip3 install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.5/en_core_web_sm-2.3.5.tar.gz
+!pip3 install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.1/en_core_web_sm-2.3.1.tar.gz
 !python -m nltk.downloader words
 !python -m nltk.downloader stopwords
 !pip install python-doctr
@@ -11,6 +11,7 @@
 !pip install pdf2image
 conda install -c conda-forge poppler
 !pip install flask
+!pip install -U flask-cors
 """
 
 
@@ -19,7 +20,7 @@ pip install --upgrade pip
 pip install pyresparser
 pip install nltk
 pip install spacy==2.3.5
-pip3 install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.5/en_core_web_sm-2.3.5.tar.gz
+pip3 install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.1/en_core_web_sm-2.3.1.tar.gz
 python -m nltk.downloader words
 python -m nltk.downloader stopwords
 pip install python-doctr
@@ -27,6 +28,8 @@ pip install "python-doctr[torch]"
 pip install pdf2image
 conda install -c conda-forge poppler
 pip install flask
+pip3 install pyOpenSSL --upgrade
+pip install flask-cors
 """
 
 
@@ -43,6 +46,7 @@ import re
 
 from flask import Flask
 from flask import request
+from flask_cors import CORS
 import urllib.request
 
 
@@ -56,6 +60,7 @@ def download_file(url, filename):
 
 
 app = Flask(__name__)
+CORS(app)
 @app.route('/', methods = ['POST'])
 def main(pdf_dict=None):
     # Get the pdf dictionary
@@ -272,4 +277,4 @@ def main(pdf_dict=None):
 
 
 if __name__ == "__main__":
-    main({"url":"https://firebasestorage.googleapis.com/v0/b/hackutd-conneqt.appspot.com/o/resumes%2F38oD5dNWCmVADXuscACWdRoRGrH2%2F1668309159465.pdf?alt=media&token=a2b3ec3c-1631-4208-b1cb-81f2199dc620"})
+    print(main({"url":"https://firebasestorage.googleapis.com/v0/b/hackutd-conneqt.appspot.com/o/resumes%2F38oD5dNWCmVADXuscACWdRoRGrH2%2F1668309159465.pdf?alt=media&token=a2b3ec3c-1631-4208-b1cb-81f2199dc620"}))
