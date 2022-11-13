@@ -49,6 +49,9 @@ from flask import request
 from flask_cors import CORS
 import urllib.request
 
+import nltk
+from nltk.tag.stanford import NERTagger
+
 
 
 
@@ -86,7 +89,6 @@ def main(pdf_dict=None):
     
     # Use the first model to get some data
     data = ResumeParser(filename).get_extracted_data()
-    data
     
     # Get the name and email
     name = data["name"]
@@ -154,13 +156,23 @@ def main(pdf_dict=None):
     twitter_window_len = len(twitter_window)
     twitter_window_max = len(twitter_window)*ord("a")
     
+    # Person tagger
+    tagger = StanfordNERTagger('stanford-ner/english.all.3class.distsim.crf.ser.gz', 'stanford-ner/stanford-ner.jar')
+    
     # Dictionaries to store possible data
     githubs = dict()
     linkedins = dict()
     twitters = dict()
     
+    # Name of the person as a list
+    person_list = list()
+    person_list_type = list()
+    
     # What line are we currently on?
     l = 0
+    
+    # What word are we currently on?
+    w = 0
 
     # Location of the person
     location = None
@@ -176,6 +188,31 @@ def main(pdf_dict=None):
                 # Combine the words into a sentence
                 sent = [sent.value for sent in line.words]
                 sent = " ".join(sent)
+                print(sent)
+                
+                # Find the name
+                if len(person_list) < 3 and w < 10:
+                    for sent in nltk.sent_tokenize(sent):
+                        if len(person_list) == 2 and person_list_type[0] == True and person_list_type[1] == True:
+                            break
+                        tokens = nltk.tokenize.word_tokenize(sent)
+                        tags = tagger.tag(tokens)
+                        for tag in tags:
+                            if (len(person_list) >= 3) or \
+                                (len(person_list) == 2 and person_list_type[0] == True and person_list_type[1] == True):
+                                break
+                            
+                            if tag[1]=='PERSON' and len(tag[0]) > 1:
+                                person_list.append(tag[0])
+                                person_list_type.append(True)
+                            elif len(person_list) > 0 and person_list_type[0] == True:
+                                person_list.append(tag[0])
+                                person_list_type.append(False)
+                            else:
+                                person_list = []
+                                person_list_type = []
+                            
+                            w += 1
                 
                 # Finding the location of the person
                 if location == None:
@@ -187,12 +224,11 @@ def main(pdf_dict=None):
                 sent_no_space = sent.replace(" ", "").lower()
                 
                 # Find any phone numbers
-                print(sent)
                 for number in re.findall("[(]?[\d]{3}[)]?[ ]?[-]?[ ]?[\d]{3}[ ]?[-]?[ ]?[\d]{4}", sent):
                     phone_numbers.append([number, l])
                 
                 # Find any emails
-                for email in re.findall("\w.]+@[\w]+.[\w.]{2,}", sent):
+                for email in re.findall("[\w.]+@[\w]+.[\w.]{2,}", sent):
                     emails.append([email, l])
                 
                 # Find any github links in the line
@@ -207,7 +243,7 @@ def main(pdf_dict=None):
                     # and it's similarity
                     if 1-(similarity/github_window_max) > 0.97:
                         # Get the github username after github.com
-                        username = re.findall("[(/*)]*[/]?[\w]+", sent_no_space[github_window_len+i:])
+                        username = re.findall("[(/*)]*[/]?[\w-]+", sent_no_space[github_window_len+i:])
                         if len(username) == 0:
                             continue
                         username = username[0]
@@ -244,16 +280,18 @@ def main(pdf_dict=None):
                     
                     # If the similarity is greater than 95%, store the sequence
                     # and it's similarity
-                    if 1-(similarity/twitter_window_max) > 0.97:
+                    if 1-(similarity/twitter_window_max) > 0.95:
                         # Get the twitter username after twitter.com/
                         username = re.findall("[/]*[@]?[\w]*", sent_no_space[linkedin_window_len+i:])
                         if len(username) == 0:
                             continue
                         username = username[0].replace(" ", "")
+                        if len(username) == 0:
+                            continue
+                        if username[0] != "/":
+                            username = "/" + username
                         twitters[twitter_window + username] = 1-(similarity/twitter_window_max)
                         
-                        
-    
     # Get the links with the highest similarity
     try:
         github = max(githubs, key=githubs.get)
@@ -284,6 +322,12 @@ def main(pdf_dict=None):
     
     about_me = None
     job_title = None
+    
+    # If a person was found, save it
+    if len(person_list) == 3:
+        name = person_list[0] + " " + person_list[2]
+    elif len(person_list) == 2:
+        name = " ".join(person_list)
     
     output = {
         "name":name if name != None else "",
