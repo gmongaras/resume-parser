@@ -60,13 +60,14 @@ app = Flask(__name__)
 def main(pdf_dict=None):
     # Get the pdf dictionary
     if pdf_dict == None:
-        pdf_dict = request.args.get("url")
-    else:
-        url = pdf_dict["url"]
+        pdf_dict = request.get_json()
     
     # Create tmp directory
     if not os.path.exists("tmp"):
         os.makedirs("tmp")
+        
+    # Get the url
+    url = pdf_dict["url"]
         
     # Download the file
     filename = "tmp/tmpfile.pdf"
