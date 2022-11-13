@@ -179,7 +179,7 @@ def main(pdf_dict=None):
                 
                 # Finding the location of the person
                 if location == None:
-                    pos = re.findall("[\w ]+,[ ]*[A-Z]{2,}|[A-Z]{3,}", sent)
+                    pos = re.findall("[\w ]+[,]{1}[ ]*[[A-Z]{2,}|[A-Z]{3,}]", sent)
                     if len(pos) > 0:
                         location = pos[0].strip()
                 
@@ -187,11 +187,12 @@ def main(pdf_dict=None):
                 sent_no_space = sent.replace(" ", "").lower()
                 
                 # Find any phone numbers
+                print(sent)
                 for number in re.findall("[(]?[\d]{3}[)]?[ ]?[-]?[ ]?[\d]{3}[ ]?[-]?[ ]?[\d]{4}", sent):
                     phone_numbers.append([number, l])
                 
                 # Find any emails
-                for email in re.findall("[\w]+@[\w]+.[\w]{2,}", sent):
+                for email in re.findall("\w.]+@[\w]+.[\w.]{2,}", sent):
                     emails.append([email, l])
                 
                 # Find any github links in the line
