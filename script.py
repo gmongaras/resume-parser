@@ -280,20 +280,22 @@ def main(pdf_dict=None):
         if idx_ < idx:
             phone_number = num
     
+    about_me = None
+    job_title = None
     
     output = {
-        "name":name,
-        "college_name":college_name,
-        "degree":degree,
-        "location":location,
-        "email":email,
-        "phone_number":phone_number,
-        "linkedin":linkedin,
-        "github":github,
-        "twitter":twitter,
-        "skills":skills,
-        "about_me":None,
-        "job_title":None,
+        "name":name if name != None else "",
+        "college_name":college_name if college_name != None else "",
+        "degree":degree if degree != None else "",
+        "location":location if location != None else "",
+        "email":email if email != None else "",
+        "phone_number":phone_number if phone_number != None else "",
+        "linkedin":linkedin if linkedin != None else "",
+        "github":github if github != None else "",
+        "twitter":twitter if twitter != None else "",
+        "skills":skills if skills != None else "",
+        "about_me":about_me if about_me != None else "",
+        "job_title":job_title if job_title != None else "",
     }
     
     return output
