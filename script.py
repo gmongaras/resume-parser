@@ -60,12 +60,11 @@ def download_file(url, filename):
 
 
 app = Flask(__name__)
-CORS(app)
 @app.route('/', methods = ['POST'])
 def main(pdf_dict=None):
     # Get the pdf dictionary
     if pdf_dict == None:
-        pdf_dict = request.get_json()
+        pdf_dict = request.args.get('msg')
     
     # Create tmp directory
     if not os.path.exists("tmp"):
@@ -86,6 +85,7 @@ def main(pdf_dict=None):
     
     # Use the first model to get some data
     data = ResumeParser(filename).get_extracted_data()
+    data
     
     # Get the name and email
     name = data["name"]
@@ -93,6 +93,7 @@ def main(pdf_dict=None):
     degree = data["degree"]
     emails = []
     phone_numbers = []
+    twitter = []
     skills = data["skills"]
     
     
@@ -148,10 +149,14 @@ def main(pdf_dict=None):
     github_window = "github.com"
     github_window_len = len(github_window)
     github_window_max = len(github_window)*ord("a")
+    twitter_window = "twitter.com"
+    twitter_window_len = len(twitter_window)
+    twitter_window_max = len(twitter_window)*ord("a")
     
     # Dictionaries to store possible data
     githubs = dict()
     linkedins = dict()
+    twitters = dict()
     
     # What line are we currently on?
     l = 0
@@ -216,19 +221,38 @@ def main(pdf_dict=None):
                     for j in range(0, len(segment)):
                         similarity += abs(ord(segment[j]) - ord(linkedin_window[j]))
                     
-                    # If the similarity is greater than 99%, store the sequence
+                    # If the similarity is greater than 97%, store the sequence
                     # and it's similarity
                     if 1-(similarity/linkedin_window_max) > 0.97:
                         # Get the linkedin username after linkedin.com/in/
-                        username = re.findall("[\w]*[/]?[\w]*[/]?[\w.]+", sent_no_space[github_window_len+i:])
+                        username = re.findall("[\w]*[/]?[\w]*[/]?[\w.]+", sent_no_space[linkedin_window_len+i:])
                         if len(username) == 0:
                             continue
                         username = username[0].split("/")[-1]
                         linkedins[linkedin_str + username] = 1-(similarity/linkedin_window_max)
+                
+                
+                # Find any twitter links in the line
+                for i in range(0, len(sent_no_space)-twitter_window_len+1):
+                    # Sentence segment
+                    segment = sent_no_space[i:twitter_window_len+i]
+                    similarity = 1
+                    for j in range(0, len(segment)):
+                        similarity += abs(ord(segment[j]) - ord(twitter_window[j]))
+                    
+                    # If the similarity is greater than 95%, store the sequence
+                    # and it's similarity
+                    if 1-(similarity/twitter_window_max) > 0.97:
+                        # Get the twitter username after twitter.com/
+                        username = re.findall("[/]*[@]?[\w]*", sent_no_space[linkedin_window_len+i:])
+                        if len(username) == 0:
+                            continue
+                        username = username[0].replace(" ", "")
+                        twitters[twitter_window + username] = 1-(similarity/twitter_window_max)
                         
                         
     
-    # Get the github link with the highest similarity
+    # Get the links with the highest similarity
     try:
         github = max(githubs, key=githubs.get)
     except:
@@ -237,6 +261,10 @@ def main(pdf_dict=None):
         linkedin = max(linkedins, key=linkedins.get)
     except:
         linkedin = None
+    try:
+        twitter = max(twitters, key=twitters.get)
+    except:
+        twitter = None
         
     # Get the earliest email
     email = None
@@ -262,7 +290,10 @@ def main(pdf_dict=None):
         "phone_number":phone_number,
         "linkedin":linkedin,
         "github":github,
+        "twitter":twitter,
         "skills":skills,
+        "about_me":None,
+        "job_title":None,
     }
     
     return output
