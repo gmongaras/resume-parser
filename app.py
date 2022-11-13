@@ -48,9 +48,15 @@ from flask import Flask
 from flask import request
 from flask_cors import CORS
 import urllib.request
+from docx2pdf import convert
+import subprocess
 
 import nltk
-from nltk.tag.stanford import StanfordNERTagger
+from nltk.tag import StanfordNERTagger
+
+import torch
+import json
+import numpy as np
 
 
 def download_file(url, filename):
