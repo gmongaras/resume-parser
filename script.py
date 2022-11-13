@@ -26,7 +26,7 @@ pip install python-doctr
 pip install "python-doctr[torch]"
 pip install pdf2image
 conda install -c conda-forge poppler
-pip install pdf2image
+pip install flask
 """
 
 
