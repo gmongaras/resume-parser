@@ -1,34 +1,43 @@
 """
 !pip install --upgrade pip
+!pip install numpy
+!pip install torch
 !pip install pyresparser
 !pip install nltk
+!pip install thinc==7.4.1
 !pip install spacy==2.3.5
-!pip3 install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.1/en_core_web_sm-2.3.1.tar.gz
+!pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.1/en_core_web_sm-2.3.1.tar.gz
 !python -m nltk.downloader words
 !python -m nltk.downloader stopwords
+!python -m nltk.downloader punkt
 !pip install python-doctr
 !pip install "python-doctr[torch]"
 !pip install pdf2image
-conda install -c conda-forge poppler
+!conda install -c conda-forge poppler
 !pip install flask
-!pip install -U flask-cors
+!pip install pyOpenSSL
+!pip install flask-cors
 """
 
 
 """
 pip install --upgrade pip
+pip install numpy
+pip install torch
 pip install pyresparser
 pip install nltk
+pip install thinc==7.4.1
 pip install spacy==2.3.5
-pip3 install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.1/en_core_web_sm-2.3.1.tar.gz
+pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.1/en_core_web_sm-2.3.1.tar.gz
 python -m nltk.downloader words
 python -m nltk.downloader stopwords
+python -m nltk.downloader punkt
 pip install python-doctr
 pip install "python-doctr[torch]"
 pip install pdf2image
 conda install -c conda-forge poppler
 pip install flask
-pip3 install pyOpenSSL --upgrade
+pip install pyOpenSSL
 pip install flask-cors
 """
 
@@ -57,11 +66,6 @@ import json
 import numpy as np
 
 
-def download_file(url, filename):
-    # Download the file locally
-    urllib.request.urlretrieve(url, filename)
-
-
     
     
     
@@ -75,7 +79,7 @@ def download_file(url, filename):
 # Load vocabs
 with open("classifier/models/vocab.json", "r") as file :
     vocab = json.load(file)
-with open("classifier/models/vocab_inv.json", "r") as file :
+with open("classifier/models/vocab_inv.json", "r") as file:
     vocab_inv = json.load(file)
 
 # Classifier model
@@ -107,14 +111,6 @@ PAD_tok = torch.tensor(vocab["<PAD>"]).int()
 
 
 
-
-
-
-
-
-
-
-    
 # Person tagger
 tagger = StanfordNERTagger('stanford-ner/english.all.3class.distsim.crf.ser.gz', 'stanford-ner/stanford-ner.jar')
 
@@ -127,21 +123,37 @@ tagger = StanfordNERTagger('stanford-ner/english.all.3class.distsim.crf.ser.gz',
 app = Flask(__name__)
 CORS(app)
 @app.route('/', methods = ['POST'])
-def main(pdf_dict=None):
+def main(pdf_dict=None, isURL=True, java_path=None):
+    if java_path != None:
+        os.environ['JAVAHOME'] = java_path
+        nltk.internals.config_java(java_path)
+    
     # Get the pdf dictionary
     if pdf_dict == None:
         pdf_dict = request.get_json()
+        
+        # Get the url
+        url = pdf_dict["url"]
+    elif type(pdf_dict) == dict:
+        # Get the url
+        url = pdf_dict["url"]
+    elif type(pdf_dict) == str:
+        filename = url = pdf_dict
+    else:
+        print("Input type not supported")
     
     # Create tmp directory
     if not os.path.exists("tmp"):
         os.makedirs("tmp")
         
-    # Get the url
-    url = pdf_dict["url"]
-        
     # Download the file
-    filename = "tmp/tmpfile.pdf"
-    download_file(url, filename)
+    if isURL:
+        filename = "tmp/tmpfile.pdf"
+
+        # Download the file locally
+        urllib.request.urlretrieve(url, filename)
+    else:
+        filename = url
     
     
     
@@ -151,7 +163,7 @@ def main(pdf_dict=None):
     
     # Use the first model to get some data
     data = ResumeParser(filename).get_extracted_data()
-    
+
     # Get the name and email
     name = data["name"]
     college_name = data["college_name"]
@@ -218,9 +230,6 @@ def main(pdf_dict=None):
     twitter_window_len = len(twitter_window)
     twitter_window_max = len(twitter_window)*ord("a")
     
-    # Person tagger
-    # tagger = StanfordNERTagger('stanford-ner/english.all.3class.distsim.crf.ser.gz', 'stanford-ner/stanford-ner.jar')
-    
     # Dictionaries to store possible data
     githubs = dict()
     linkedins = dict()
@@ -258,7 +267,13 @@ def main(pdf_dict=None):
                         if len(person_list) == 2 and person_list_type[0] == True and person_list_type[1] == True:
                             break
                         tokens = nltk.tokenize.word_tokenize(sent)
-                        tags = tagger.tag(tokens)
+                        try:
+                            tags = tagger.tag(tokens)
+                        except LookupError:
+                            java_path = "C:\Program Files\Java\jdk-18\bin\java.exe"
+                            os.environ['JAVAHOME'] = java_path
+
+                            tags = tagger.tag(tokens)
                         for tag in tags:
                             if (len(person_list) >= 3) or \
                                 (len(person_list) == 2 and person_list_type[0] == True and person_list_type[1] == True):
@@ -358,9 +373,11 @@ def main(pdf_dict=None):
                         twitters[twitter_window + username] = 1-(similarity/twitter_window_max)
                 
                 
-                
-                if l < 20:
-                    # Segments in the line with padding with 2 words
+
+                # Find the job title in the first L lines
+                L = 100
+                if l < L:
+                    # Segments in the line with 2 words
                     segments_enc = [
                         torch.tensor(
                             [vocab[j] for j in
@@ -373,7 +390,7 @@ def main(pdf_dict=None):
                         for i in range(0, len(sent_list)-1)
                     ]
                     
-                    # Segments in the line with padding with 1 word
+                    # Segments in the line with 1 word
                     segments_enc += [
                         torch.tensor(
                             [vocab[j] for j in
@@ -394,7 +411,7 @@ def main(pdf_dict=None):
                         # Convert the segments to a batch
                         segments_enc = torch.stack(segments_enc).int()
 
-                        # Get the model output on the predictions
+                        # Get the model output on the batch
                         segments_out = M(segments_enc)
 
                         # Save the predictions
@@ -402,6 +419,11 @@ def main(pdf_dict=None):
                             job_titles[segments[i]] = segments_out[i].item()
                     except RuntimeError:
                         pass
+
+
+    # Delete the files in the temporary directory
+    if isURL:
+        os.remove(filename)
                   
                     
                     
@@ -422,19 +444,19 @@ def main(pdf_dict=None):
         
     # Get the earliest email
     email = None
-    idx = 999999999
+    idx = np.inf
     for num,idx_ in emails:
         if idx_ < idx:
             email = num
         
     # Get the earliest phone number
     phone_number = None
-    idx = 999999999
+    idx = np.inf
     for num,idx_ in phone_numbers:
         if idx_ < idx:
             phone_number = num
             
-    # Get the highest confidenceprediction for the job
+    # Get the highest confidence prediction for the job
     job_title_max = np.argmax(list(job_titles.values()))
     job_title = list(job_titles.keys())[job_title_max]
     
@@ -472,4 +494,7 @@ def main(pdf_dict=None):
 
 
 if __name__ == "__main__":
-    print(main({"url":"https://firebasestorage.googleapis.com/v0/b/hackutd-conneqt.appspot.com/o/resumes%2F38oD5dNWCmVADXuscACWdRoRGrH2%2F1668309159465.pdf?alt=media&token=a2b3ec3c-1631-4208-b1cb-81f2199dc620"}))
+    # print(main({"url":"https://firebasestorage.googleapis.com/v0/b/hackutd-conneqt.appspot.com/o/resumes%2F38oD5dNWCmVADXuscACWdRoRGrH2%2F1668309159465.pdf?alt=media&token=a2b3ec3c-1631-4208-b1cb-81f2199dc620"}))
+    # print(main("./test.pdf", False, java_path = "C:/Program Files/Java/jdk-18/bin/java.exe"))
+    print(main("https://www.pdf-archive.com/2017/09/26/fake-resume/fake-resume.pdf", True, java_path = "C:/Program Files/Java/jdk-18/bin/java.exe"))
+          
